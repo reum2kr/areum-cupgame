@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>컵 찾기 — 야바위 미니게임</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<style>
+  :root{
+    --ink:#0a0a0a;
+    --ink-2:#111214;
+    --light-text:#f4f2ec;
+    --muted-dark:#8a897f;
+    --signal:#c65a1f;
+    --signal-bright:#d0692a;
+    --line-dark:rgba(244,242,236,0.14);
+    --ok:#4caf7d;
+    --fail:#c6462f;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+    --display:'Space Grotesk','Pretendard',sans-serif;
+    --body:'Pretendard','Space Grotesk',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+  }
+  body{
+    font-family:var(--body);
+    background:var(--ink);
+    color:var(--light-text);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    min-height:100svh;
+    display:flex;
+    flex-direction:column;
+  }
+  a{color:inherit;}
+  :focus-visible{outline:2px solid var(--signal-bright);outline-offset:3px;}
+
+  .wrap{max-width:720px;margin:0 auto;padding:28px 20px 60px;width:100%;}
+
+  header{
+    display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    padding-bottom:18px;border-bottom:1px solid var(--line-dark);margin-bottom:24px;
+    flex-wrap:wrap;
+  }
+  .title{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:-0.01em;}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;color:var(--signal-bright);letter-spacing:.12em;display:block;margin-bottom:6px;}
+
+  .effects-toggle{
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;
+    background:none;border:1px solid var(--line-dark);color:var(--light-text);
+    padding:8px 12px;border-radius:999px;cursor:pointer;
+  }
+  .effects-toggle[aria-pressed="true"]{background:var(--signal);border-color:var(--signal);}
+
+  .rules{
+    font-family:var(--body);font-size:14px;color:var(--muted-dark);line-height:1.7;
+    margin-bottom:24px;max-width:56ch;
+  }
+
+  .status-row{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    margin-bottom:22px;
+  }
+  .status-badge{
+    font-family:var(--mono);font-size:13px;letter-spacing:.04em;
+    border:1px solid var(--line-dark);border-radius:999px;padding:8px 16px;
+    display:inline-flex;align-items:center;gap:8px;
+  }
+  .status-dot{width:8px;height:8px;border-radius:50%;background:var(--muted-dark);}
+  .status-badge[data-state="shuffling"] .status-dot{background:var(--signal-bright);}
+  .status-badge[data-state="picking"] .status-dot{background:var(--ok);}
+  .status-badge[data-state="success"] .status-dot{background:var(--ok);}
+  .status-badge[data-state="fail"] .status-dot{background:var(--fail);}
+
+  .stat-group{display:flex;gap:18px;font-family:var(--mono);font-size:12.5px;color:var(--muted-dark);}
+  .stat-group b{color:var(--light-text);font-weight:600;}
+  .timer-badge{
+    font-family:var(--mono);font-size:13px;letter-spacing:.04em;
+    border:1px solid var(--line-dark);border-radius:999px;padding:8px 14px;
+    color:var(--muted-dark);visibility:hidden;
+  }
+  .timer-badge.is-running{visibility:visible;}
+  .timer-badge.is-urgent{color:var(--fail);border-color:var(--fail);}
+
+  .difficulty-row{
+    display:flex;align-items:center;gap:12px;margin-bottom:30px;flex-wrap:wrap;
+  }
+  .difficulty-label{font-family:var(--mono);font-size:12px;color:var(--muted-dark);letter-spacing:.06em;}
+  .diff-btn{
+    font-family:var(--mono);font-size:13px;background:none;border:1px solid var(--line-dark);
+    color:var(--light-text);padding:7px 14px;border-radius:6px;cursor:pointer;
+  }
+  .diff-btn[aria-pressed="true"]{background:var(--signal);border-color:var(--signal);}
+  .diff-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+  .stage{
+    position:relative;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(255,200,140,0.10), transparent 60%),
+      linear-gradient(180deg,#5a3c26,#3e2818 55%,#2c1c10);
+    border:1px solid #6b4a2f;border-radius:14px;
+    padding:64px 20px 18px;margin-bottom:22px;
+    min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+    overflow:hidden;
+  }
+  .stage::before{
+    content:'';position:absolute;inset:0;
+    background:repeating-linear-gradient(90deg, rgba(0,0,0,0.05) 0 3px, transparent 3px 26px);
+    pointer-events:none;
+  }
+  .garland{position:absolute;top:6px;left:0;right:0;padding:0 4px;pointer-events:none;}
+  .garland-row{display:flex;justify-content:space-between;align-items:flex-start;position:relative;}
+  .garland-row::before{
+    content:'';position:absolute;top:9px;left:0;right:0;height:1px;
+    background:#7a5636;
+  }
+  .banana-item{
+    position:relative;width:9%;max-width:34px;min-width:20px;flex:none;
+  }
+  .banana-item:nth-child(odd){margin-top:0;}
+  .banana-item:nth-child(even){margin-top:13px;}
+  .banana-item::before{
+    content:'';position:absolute;top:2px;left:50%;transform:translateX(-50%);
+    width:26px;height:26px;border-radius:50%;
+    background:#ffd77a;opacity:0.45;filter:blur(6px);
+  }
+  .banana-item svg{position:relative;width:100%;height:auto;display:block;}
+  .banana-stem{position:absolute;top:-7px;left:50%;width:1.5px;height:7px;background:#7a5636;}
+
+  .monkey{position:relative;width:118px;height:118px;margin-bottom:-6px;pointer-events:none;z-index:5;}
+  .monkey svg{width:100%;height:100%;display:block;}
+  .monkey .mouth{display:none;}
+  .monkey[data-mood="idle"] .mouth-neutral{display:block;}
+  .monkey[data-mood="success"] .mouth-happy{display:block;}
+  .monkey[data-mood="fail"] .mouth-sad{display:block;}
+  .monkey[data-mood="success"] .brow{transform:translateY(-2px);}
+  .monkey[data-mood="fail"] .brow{transform:translateY(2px) rotate(-4deg);}
+
+  .table-wrap{position:relative;width:100%;}
+  .cups{
+    position:relative;z-index:2;display:flex;gap:18px;align-items:flex-end;justify-content:center;
+    flex-wrap:nowrap;overflow-x:visible;padding:4px;
+  }
+  .table-surface{
+    position:relative;z-index:1;
+    height:40px;margin:-18px -20px 0;
+    background:linear-gradient(180deg, #a97b46 0%, #a97b46 60%, #6e4b26 60%, #4d3319 100%);
+    border-top:2px solid #c99a5f;
+    border-bottom:1px solid #3a2510;
+  }
+  .cup-btn{
+    position:relative;width:74px;height:88px;flex:none;
+    background:none;border:none;padding:0;cursor:pointer;
+    transition:transform var(--swap-duration, 0.28s) ease;
+    will-change:transform;
+  }
+  .cups.no-anim .cup-btn{transition:none;}
+  .cup-btn:disabled{cursor:default;}
+  .cup-shape{
+    width:100%;height:100%;position:relative;
+    display:flex;align-items:flex-end;justify-content:center;
+    padding-bottom:8px;
+    filter:drop-shadow(0 6px 6px rgba(0,0,0,0.35));
+  }
+  .cup-shape::before{
+    content:'';position:absolute;inset:0;
+    clip-path:polygon(26% 0%, 74% 0%, 96% 100%, 4% 100%);
+    background:
+      linear-gradient(100deg, rgba(255,255,255,0.35) 0%, transparent 18%),
+      #c73e3e;
+    border-radius:2px 2px 10px 10px;
+    transition:opacity .2s ease;
+  }
+  .cup-shape::after{
+    content:'';position:absolute;top:0;left:22%;right:22%;height:8px;
+    border-radius:50%;background:rgba(255,255,255,0.4);
+    transition:opacity .2s ease;
+  }
+  .cup-btn[data-reveal="empty"] .cup-shape{opacity:.5;}
+  .cup-btn[data-reveal="ball"] .cup-shape::before,
+  .cup-btn[data-reveal="ball"] .cup-shape::after{opacity:.18;}
+  .cup-btn[data-picked="true"] .cup-shape{outline:2px solid var(--signal-bright);outline-offset:4px;border-radius:4px;}
+  .stone{
+    display:none;position:relative;z-index:1;width:26px;height:19px;margin-bottom:2px;
+  }
+  .stone svg{width:100%;height:100%;display:block;}
+  .cup-btn[data-reveal="ball"] .stone{display:block;}
+
+  .paw{
+    position:absolute;top:0;left:0;width:36px;height:36px;z-index:4;
+    opacity:0;pointer-events:none;
+    transition:left var(--swap-duration, 0.28s) ease, top var(--swap-duration, 0.28s) ease, opacity .15s ease;
+  }
+  .paw svg{width:100%;height:100%;display:block;}
+  .arm{
+    position:absolute;top:0;left:0;height:20px;width:0;z-index:3;
+    background:linear-gradient(180deg,#96693e,#6b4327);
+    border-radius:10px;
+    transform-origin:0 50%;
+    opacity:0;pointer-events:none;
+    transition:width var(--swap-duration, 0.28s) ease, transform var(--swap-duration, 0.28s) ease, opacity .15s ease;
+  }
+
+  .action-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+  .primary-btn{
+    font-family:var(--mono);font-size:13.5px;letter-spacing:.04em;
+    background:var(--signal);color:#0a0a0a;border:none;border-radius:8px;
+    padding:12px 22px;cursor:pointer;font-weight:600;
+  }
+  .primary-btn:hover{background:var(--signal-bright);}
+  .result-text{font-family:var(--body);font-size:14px;min-height:20px;}
+  .result-text[data-tone="success"]{color:var(--ok);}
+  .result-text[data-tone="fail"]{color:var(--fail);}
+
+  footer{
+    margin-top:auto;padding:18px 20px;border-top:1px solid var(--line-dark);
+    font-family:var(--mono);font-size:11px;color:var(--muted-dark);text-align:center;
+  }
+
+  .sr-only{
+    position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+    clip:rect(0,0,0,0);white-space:nowrap;border:0;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <span class="eyebrow">MINI GAME</span>
+      <h1 class="title">컵 찾기 (야바위)</h1>
+    </div>
+    <button type="button" id="effectsToggle" class="effects-toggle" aria-pressed="false">효과 줄이기</button>
+  </header>
+
+  <p class="rules">
+    <strong>규칙:</strong> 돌이 든 컵 하나를 확인시켜준 뒤, 컵을 섞습니다. 셔플이 끝나면 컵을 하나 골라 클릭(또는 Tab으로 이동 후 Enter/Space)하세요.
+    고른 컵에 돌이 있으면 성공, 아니면 실패입니다. 라운드 중에는 고른 컵을 다시 바꿀 수 없고, 결과 확인 후 "다시 시작"으로 새 라운드를 시작합니다.
+  </p>
+
+  <div class="status-row">
+    <div class="status-badge" id="statusBadge" data-state="idle" role="status" aria-live="polite">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span id="statusText">대기 중</span>
+    </div>
+    <div class="timer-badge" id="timerBadge" aria-hidden="true">⏱ <span id="timerValue">30</span>s</div>
+    <div class="stat-group">
+      <span>연속 성공 <b id="streakNow">0</b></span>
+      <span>최고 기록 <b id="streakBest">0</b></span>
+    </div>
+  </div>
+
+  <div class="difficulty-row">
+    <span class="difficulty-label">컵 개수 (난이도)</span>
+    <button type="button" class="diff-btn" data-cups="3" aria-pressed="true">3개</button>
+    <button type="button" class="diff-btn" data-cups="4" aria-pressed="false">4개</button>
+    <button type="button" class="diff-btn" data-cups="5" aria-pressed="false">5개</button>
+  </div>
+
+  <div class="stage">
+    <div class="garland" aria-hidden="true">
+      <div class="garland-row">
+        <div class="banana-item"><div class="banana-stem"></div><svg viewBox="-22 -4 44 64" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0 0 C3 1 5 4 5 8 C6 16 10 22 16 27 C24 33 26 42 21 49 C15 57 3 60 -6 56 C-10 54 -11 50 -8 47 C-3 43 5 41 8 33 C10 27 7 20 1 15 C-3 11 -4 6 -2 2 C-1 1 0 0 0 0 Z" fill="#f2d35a" stroke="#9c7a1f" stroke-width="1.2"/>
+          <path d="M-1 4 C4 10 8 17 13 24 C18 31 19 40 13 46" stroke="#c9a83a" stroke-width="1" fill="none" opacity="0.6" stroke-linecap="round"/>
+          <ellipse cx="-6" cy="55" rx="4.2" ry="3.2" fill="#5a3c1e" transform="rotate(-30 -6 55)"/>
+        </svg></div>
+        <div class="banana-item"><div class="banana-stem"></div><svg viewBox="-22 -4 44 64" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0 0 C3 1 5 4 5 8 C6 16 10 22 16 27 C24 33 26 42 21 49 C15 57 3 60 -6 56 C-10 54 -11 50 -8 47 C-3 43 5 41 8 33 C10 27 7 20 1 15 C-3 11 -4 6 -2 2 C-1 1 0 0 0 0 Z" fill="#f2d35a" stroke="#9c7a1f" stroke-width="1.2"/>
+          <path d="M-1 4 C4 10 8 17 13 24 C18 31 19 40 13 46" stroke="#c9a83a" stroke-width="1" fill="none" opacity="0.6" stroke-linecap="round"/>
+          <ellipse cx="-6" cy="55" rx="4.2" ry="3.2" fill="#5a3c1e" transform="rotate(-30 -6 55)"/>
+        </svg></div>
+        <div class="banana-item"><div class="banana-stem"></div><svg viewBox="-22 -4 44 64" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0 0 C3 1 5 4 5 8 C6 16 10 22 16 27 C24 33 26 42 21 49 C15 57 3 60 -6 56 C-10 54 -11 50 -8 47 C-3 43 5 41 8 33 C10 27 7 20 1 15 C-3 11 -4 6 -2 2 C-1 1 0 0 0 0 Z" fill="#f2d35a" stroke="#9c7a1f" stroke-width="1.2"/>
+          <path d="M-1 4 C4 10 8 17 13 24 C18 31 19 40 13 46" stroke="#c9a83a" stroke-width="1" fill="none" opacity="0.6" stroke-linecap="round"/>
+          <ellipse cx="-6" cy="55" rx="4.2" ry="3.2" fill="#5a3c1e" transform="rotate(-30 -6 55)"/>
+        </svg></div>
+        <div class="banana-item"><div class="banana-stem"></div><svg viewBox="-22 -4 44 64" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0 0 C3 1 5 4 5 8 C6 16 10 22 16 27 C24 33 26 42 21 49 C15 57 3 60 -6 56 C-10 54 -11 50 -8 47 C-3 43 5 41 8 33 C10 27 7 20 1 15 C-3 11 -4 6 -2 2 C-1 1 0 0 0 0 Z" fill="#f2d35a" stroke="#9c7a1f" stroke-width="1.2"/>
+          <path d="M-1 4 C4 10 8 17 13 24 C18 31 19 40 13 46" stroke="#c9a83a" stroke-width="1" fill="none" opacity="0.6" stroke-linecap="round"/>
+          <ellipse cx="-6" cy="55" rx="4.2" ry="3.2" fill="#5a3c1e" transform="rotate(-30 -6 55)"/>
+        </svg></div>
+        <div class="banana-item"><div class="banana-stem"></div><svg viewBox="-22 -4 44 64" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0 0 C3 1 5 4 5 8 C6 16 10 22 16 27 C24 33 26 42 21 49 C15 57 3 60 -6 56 C-10 54 -11 50 -8 47 C-3 43 5 41 8 33 C10 27 7 20 1 15 C-3 11 -4 6 -2 2 C-1 1 0 0 0 0 Z" fill="#f2d35a" stroke="#9c7a1f" stroke-width="1.2"/>
+          <path d="M-1 4 C4 10 8 17 13 24 C18 31 19 40 13 46" stroke="#c9a83a" stroke-width="1" fill="none" opacity="0.6" stroke-linecap="round"/>
+          <ellipse cx="-6" cy="55" rx="4.2" ry="3.2" fill="#5a3c1e" transform="rotate(-30 -6 55)"/>
+        </svg></div>
+        <div class="banana-item"><div class="banana-stem"></div><svg viewBox="-22 -4 44 64" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0 0 C3 1 5 4 5 8 C6 16 10 22 16 27 C24 33 26 42 21 49 C15 57 3 60 -6 56 C-10 54 -11 50 -8 47 C-3 43 5 41 8 33 C10 27 7 20 1 15 C-3 11 -4 6 -2 2 C-1 1 0 0 0 0 Z" fill="#f2d35a" stroke="#9c7a1f" stroke-width="1.2"/>
+          <path d="M-1 4 C4 10 8 17 13 24 C18 31 19 40 13 46" stroke="#c9a83a" stroke-width="1" fill="none" opacity="0.6" stroke-linecap="round"/>
+          <ellipse cx="-6" cy="55" rx="4.2" ry="3.2" fill="#5a3c1e" transform="rotate(-30 -6 55)"/>
+        </svg></div>
+        <div class="banana-item"><div class="banana-stem"></div><svg viewBox="-22 -4 44 64" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0 0 C3 1 5 4 5 8 C6 16 10 22 16 27 C24 33 26 42 21 49 C15 57 3 60 -6 56 C-10 54 -11 50 -8 47 C-3 43 5 41 8 33 C10 27 7 20 1 15 C-3 11 -4 6 -2 2 C-1 1 0 0 0 0 Z" fill="#f2d35a" stroke="#9c7a1f" stroke-width="1.2"/>
+          <path d="M-1 4 C4 10 8 17 13 24 C18 31 19 40 13 46" stroke="#c9a83a" stroke-width="1" fill="none" opacity="0.6" stroke-linecap="round"/>
+          <ellipse cx="-6" cy="55" rx="4.2" ry="3.2" fill="#5a3c1e" transform="rotate(-30 -6 55)"/>
+        </svg></div>
+        <div class="banana-item"><div class="banana-stem"></div><svg viewBox="-22 -4 44 64" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0 0 C3 1 5 4 5 8 C6 16 10 22 16 27 C24 33 26 42 21 49 C15 57 3 60 -6 56 C-10 54 -11 50 -8 47 C-3 43 5 41 8 33 C10 27 7 20 1 15 C-3 11 -4 6 -2 2 C-1 1 0 0 0 0 Z" fill="#f2d35a" stroke="#9c7a1f" stroke-width="1.2"/>
+          <path d="M-1 4 C4 10 8 17 13 24 C18 31 19 40 13 46" stroke="#c9a83a" stroke-width="1" fill="none" opacity="0.6" stroke-linecap="round"/>
+          <ellipse cx="-6" cy="55" rx="4.2" ry="3.2" fill="#5a3c1e" transform="rotate(-30 -6 55)"/>
+        </svg></div>
+      </div>
+    </div>
+
+    <div class="monkey" aria-hidden="true" id="monkeyFace" data-mood="idle">
+      <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="60" cy="112" rx="46" ry="10" fill="rgba(0,0,0,0.35)"/>
+        <path d="M22 118c-2-30 6-46 38-46s40 16 38 46Z" fill="#6b4a30"/>
+        <path d="M30 118c0-22 8-32 30-32s30 10 30 32Z" fill="#8a5a34"/>
+        <circle cx="34" cy="70" r="11" fill="#6b4a30"/>
+        <circle cx="86" cy="70" r="11" fill="#6b4a30"/>
+        <circle cx="34" cy="70" r="6" fill="#c98a5a"/>
+        <circle cx="86" cy="70" r="6" fill="#c98a5a"/>
+        <circle cx="60" cy="62" r="34" fill="#8a5a34"/>
+        <ellipse cx="60" cy="70" rx="20" ry="17" fill="#e3bd93"/>
+        <g class="brow" style="transition:transform .25s ease;">
+          <path d="M45 56q6-4 12 0" stroke="#2a1a10" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M63 56q6-4 12 0" stroke="#2a1a10" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </g>
+        <circle cx="51" cy="64" r="4.5" fill="#2a1a10"/>
+        <circle cx="69" cy="64" r="4.5" fill="#2a1a10"/>
+        <path class="mouth mouth-neutral" d="M53 78q7 6 14 0" stroke="#2a1a10" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <path class="mouth mouth-happy" d="M48 76q12 16 24 0" stroke="#2a1a10" stroke-width="2.4" fill="#5a2f20" stroke-linecap="round"/>
+        <path class="mouth mouth-sad" d="M49 84q11-10 22 0" stroke="#2a1a10" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <ellipse cx="52" cy="74" rx="3" ry="2" fill="#c98a5a" opacity="0.7"/>
+        <ellipse cx="68" cy="74" rx="3" ry="2" fill="#c98a5a" opacity="0.7"/>
+        <path d="M22 46c4-16 20-26 38-26s34 10 38 26c-10-8-24-12-38-12s-28 4-38 12Z" fill="#4a3020"/>
+        <path d="M20 44c6-4 16-6 40-6s34 2 40 6c-2-4-8-6-12-6-4-6-10-8-28-8s-24 2-28 8c-4 0-10 2-12 6Z" fill="#2f1d10"/>
+      </svg>
+    </div>
+
+    <div class="arm" id="armA" aria-hidden="true"></div>
+    <div class="arm" id="armB" aria-hidden="true"></div>
+    <div class="paw" id="pawA" aria-hidden="true">
+      <svg viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="18" cy="20" rx="13" ry="11" fill="#8a5a34"/>
+        <circle cx="8" cy="10" r="5" fill="#8a5a34"/>
+        <circle cx="18" cy="6" r="5.5" fill="#8a5a34"/>
+        <circle cx="28" cy="10" r="5" fill="#8a5a34"/>
+        <ellipse cx="18" cy="21" rx="8" ry="6.5" fill="#c98a5a"/>
+      </svg>
+    </div>
+    <div class="paw" id="pawB" aria-hidden="true">
+      <svg viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="18" cy="20" rx="13" ry="11" fill="#8a5a34"/>
+        <circle cx="8" cy="10" r="5" fill="#8a5a34"/>
+        <circle cx="18" cy="6" r="5.5" fill="#8a5a34"/>
+        <circle cx="28" cy="10" r="5" fill="#8a5a34"/>
+        <ellipse cx="18" cy="21" rx="8" ry="6.5" fill="#c98a5a"/>
+      </svg>
+    </div>
+
+    <div class="table-wrap">
+      <div class="cups" id="cupsRow"></div>
+      <div class="table-surface"></div>
+    </div>
+  </div>
+
+  <div class="action-row">
+    <button type="button" class="primary-btn" id="startBtn">시작</button>
+    <p class="result-text" id="resultText" aria-live="polite"></p>
+  </div>
+
+  <p class="sr-only" id="liveRegion" aria-live="polite"></p>
+</div>
+
+<footer>컵 찾기 미니게임 — SKT ALEPH 과제 제출용</footer>
+
+<script>
+(function(){
+  const cupsRow = document.getElementById('cupsRow');
+  const statusBadge = document.getElementById('statusBadge');
+  const statusText = document.getElementById('statusText');
+  const startBtn = document.getElementById('startBtn');
+  const resultText = document.getElementById('resultText');
+  const streakNowEl = document.getElementById('streakNow');
+  const streakBestEl = document.getElementById('streakBest');
+  const timerBadge = document.getElementById('timerBadge');
+  const timerValueEl = document.getElementById('timerValue');
+  const effectsToggle = document.getElementById('effectsToggle');
+  const diffBtns = Array.from(document.querySelectorAll('.diff-btn'));
+  const liveRegion = document.getElementById('liveRegion');
+  const monkeyFace = document.getElementById('monkeyFace');
+  const stageEl = document.querySelector('.stage');
+  const armA = document.getElementById('armA');
+  const armB = document.getElementById('armB');
+  const pawA = document.getElementById('pawA');
+  const pawB = document.getElementById('pawB');
+
+  const STORAGE_KEY = 'cupgame-save-v1';
+
+  // ---- Persisted state (best streak + difficulty), safe against corrupted/missing values ----
+  function loadSave(){
+    const fallback = { best: 0, cups: 3, reduceEffects: false };
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return fallback;
+      const parsed = JSON.parse(raw);
+      const best = Number.isFinite(parsed.best) ? parsed.best : 0;
+      const cups = [3,4,5].includes(parsed.cups) ? parsed.cups : 3;
+      const reduceEffects = typeof parsed.reduceEffects === 'boolean' ? parsed.reduceEffects : false;
+      return { best, cups, reduceEffects };
+    }catch(e){
+      return fallback;
+    }
+  }
+  function saveState(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        best: state.best, cups: state.cupCount, reduceEffects: state.reduceEffects
+      }));
+    }catch(e){ /* storage unavailable — game still works, just doesn't persist */ }
+  }
+
+  const saved = loadSave();
+
+  // ---- Live game state (resets every new round; not persisted) ----
+  const state = {
+    cupCount: saved.cups,
+    reduceEffects: saved.reduceEffects,
+    ballIndex: -1,        // which SLOT currently holds the ball
+    phase: 'idle',        // idle | shuffling | picking | success | fail
+    locked: true,          // true = clicks on cups are ignored
+    streak: 0,
+    best: saved.best,
+    shuffleTimers: [],
+    pausedShuffleQueue: null,
+    countdownInterval: null,
+    countdownRemainingMs: 0,
+    countdownDeadline: 0,
+    countdownRunning: false,
+    slotWidth: 0,          // px distance between adjacent slots, measured per round
+    homeOffsetLeft: [],    // homeOffsetLeft[homeIndex] -> that button's fixed layout x
+    homeAtSlot: [],        // homeAtSlot[slot] -> homeIndex of the button currently shown there
+    slotOfHome: [],        // slotOfHome[homeIndex] -> slot that button currently occupies
+  };
+
+  function announce(msg){
+    liveRegion.textContent = msg;
+  }
+
+  function setPhase(phase, label){
+    state.phase = phase;
+    statusBadge.dataset.state = phase;
+    statusText.textContent = label;
+  }
+
+  function renderStats(){
+    streakNowEl.textContent = String(state.streak);
+    streakBestEl.textContent = String(state.best);
+  }
+
+  function cupEls(){
+    return Array.from(cupsRow.querySelectorAll('.cup-btn'));
+  }
+
+  // Fixed anchor points (in .stage-relative pixels) where the monkey's arms
+  // attach. Recomputed whenever the board is rebuilt, since the monkey
+  // itself never moves but the stage can resize between rounds.
+  function computeShoulders(){
+    const stageRect = stageEl.getBoundingClientRect();
+    const monkeyRect = monkeyFace.getBoundingClientRect();
+    state.shoulders = {
+      left: {
+        x: monkeyRect.left + monkeyRect.width * 0.27 - stageRect.left,
+        y: monkeyRect.top + monkeyRect.height * 0.8 - stageRect.top,
+      },
+      right: {
+        x: monkeyRect.left + monkeyRect.width * 0.73 - stageRect.left,
+        y: monkeyRect.top + monkeyRect.height * 0.8 - stageRect.top,
+      },
+    };
+  }
+
+  function buildCups(){
+    cupsRow.innerHTML = '';
+    cupsRow.classList.toggle('no-anim', state.reduceEffects);
+    const speed = speedProfile(state.cupCount);
+    cupsRow.style.setProperty('--swap-duration', (speed.duration/1000) + 's');
+    for(let i=0;i<state.cupCount;i++){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cup-btn';
+      btn.setAttribute('data-home', String(i));
+      btn.disabled = true;
+      btn.innerHTML = '<span class="cup-shape"><span class="stone" aria-hidden="true">' +
+        '<svg viewBox="0 0 26 19" xmlns="http://www.w3.org/2000/svg">' +
+        '<ellipse cx="13" cy="11" rx="12" ry="7" fill="#7a7268"/>' +
+        '<ellipse cx="10" cy="8" rx="6" ry="3.4" fill="#9a917f" opacity="0.8"/>' +
+        '<ellipse cx="16" cy="13" rx="4" ry="2" fill="#5c5548"/>' +
+        '</svg></span></span>';
+      btn.addEventListener('click', onCupClick);
+      cupsRow.appendChild(btn);
+    }
+
+    // Fresh identity mapping: slot i is occupied by the button built at home index i.
+    state.homeAtSlot = Array.from({length: state.cupCount}, (_, i) => i);
+    state.slotOfHome = Array.from({length: state.cupCount}, (_, i) => i);
+    // Measure fixed layout position of each button (unaffected by transform).
+    state.homeOffsetLeft = cupEls().map(el => el.offsetLeft);
+    state.slotWidth = state.cupCount > 1
+      ? (state.homeOffsetLeft[1] - state.homeOffsetLeft[0])
+      : 0;
+    computeShoulders();
+  }
+
+  function elAtSlot(slot){
+    return cupEls()[state.homeAtSlot[slot]];
+  }
+
+  function setCupsEnabled(enabled){
+    cupEls().forEach(btn => { btn.disabled = !enabled; });
+  }
+
+  function resetCupVisuals(){
+    cupEls().forEach(btn=>{
+      btn.removeAttribute('data-reveal');
+      btn.removeAttribute('data-picked');
+    });
+  }
+
+  // ---- 30-second round timer ----
+  // Uses a wall-clock deadline (not a naive tick counter) so it stays
+  // accurate even if the tab is throttled, and pauses cleanly when the
+  // tab is hidden (paired with the shuffle pause below).
+  const ROUND_MS = 30000;
+
+  function renderCountdown(ms){
+    const secs = Math.max(0, Math.ceil(ms / 1000));
+    timerValueEl.textContent = String(secs);
+    timerBadge.classList.toggle('is-urgent', secs <= 5);
+  }
+
+  function startCountdown(){
+    stopCountdown();
+    state.countdownRemainingMs = ROUND_MS;
+    state.countdownDeadline = Date.now() + ROUND_MS;
+    state.countdownRunning = true;
+    timerBadge.classList.add('is-running');
+    renderCountdown(ROUND_MS);
+    state.countdownInterval = setInterval(()=>{
+      const remaining = state.countdownDeadline - Date.now();
+      renderCountdown(remaining);
+      if(remaining <= 0){
+        stopCountdown();
+        onTimeout();
+      }
+    }, 250);
+  }
+
+  function stopCountdown(){
+    if(state.countdownInterval){ clearInterval(state.countdownInterval); state.countdownInterval = null; }
+    state.countdownRunning = false;
+    timerBadge.classList.remove('is-running');
+  }
+
+  function pauseCountdown(){
+    if(!state.countdownRunning) return;
+    state.countdownRemainingMs = Math.max(0, state.countdownDeadline - Date.now());
+    if(state.countdownInterval){ clearInterval(state.countdownInterval); state.countdownInterval = null; }
+  }
+
+  function resumeCountdown(){
+    if(!state.countdownRunning || state.countdownInterval) return;
+    state.countdownDeadline = Date.now() + state.countdownRemainingMs;
+    state.countdownInterval = setInterval(()=>{
+      const remaining = state.countdownDeadline - Date.now();
+      renderCountdown(remaining);
+      if(remaining <= 0){
+        stopCountdown();
+        onTimeout();
+      }
+    }, 250);
+  }
+
+  function onTimeout(){
+    if(state.phase !== 'shuffling' && state.phase !== 'picking') return;
+    state.locked = true;
+    setCupsEnabled(false);
+    clearShuffleTimers();
+    hideHands();
+    for(let slot=0; slot<state.cupCount; slot++){
+      elAtSlot(slot).setAttribute('data-reveal', slot === state.ballIndex ? 'ball' : 'empty');
+    }
+    state.streak = 0;
+    setPhase('fail', '결과: 실패');
+    resultText.textContent = '시간 초과! 30초 안에 고르지 못했어요.';
+    resultText.setAttribute('data-tone','fail');
+    if(monkeyFace) monkeyFace.setAttribute('data-mood', 'fail');
+    announce('시간 초과로 실패했습니다.');
+    renderStats();
+    saveState();
+    startBtn.textContent = '다시 시작';
+    startBtn.focus();
+  }
+
+  // ---- Round flow ----
+  function startRound(){
+    clearShuffleTimers();
+    resultText.textContent = '';
+    resultText.removeAttribute('data-tone');
+    if(monkeyFace) monkeyFace.setAttribute('data-mood', 'idle');
+    buildCups();
+    state.ballIndex = Math.floor(Math.random() * state.cupCount);
+    state.locked = true;
+    setPhase('shuffling', '돌 위치 확인 중');
+    announce('돌 위치를 확인하세요.');
+    startCountdown();
+
+    // Briefly reveal the ball, then start shuffling.
+    revealBall();
+    schedule(()=>{
+      hideReveal();
+      setPhase('shuffling', '셔플 중');
+      announce('셔플을 시작합니다.');
+      runShuffle();
+    }, state.reduceEffects ? 200 : 900);
+  }
+
+  function revealBall(){
+    const btn = elAtSlot(state.ballIndex);
+    if(btn) btn.setAttribute('data-reveal','ball');
+  }
+  function hideReveal(){
+    resetCupVisuals();
+  }
+
+  function schedule(fn, delay){
+    const id = setTimeout(fn, delay);
+    state.shuffleTimers.push(id);
+    return id;
+  }
+  function clearShuffleTimers(){
+    state.shuffleTimers.forEach(id => clearTimeout(id));
+    state.shuffleTimers = [];
+  }
+
+  // Visually swap whatever is currently in slot a and slot b, animating
+  // each button (and the monkey's paws) to the other slot's fixed x position.
+  function swapSlots(a, b){
+    const homeA = state.homeAtSlot[a];
+    const homeB = state.homeAtSlot[b];
+    const cups = cupEls();
+    const elA = cups[homeA];
+    const elB = cups[homeB];
+    const targetXForA = state.homeOffsetLeft[b] - state.homeOffsetLeft[homeA];
+    const targetXForB = state.homeOffsetLeft[a] - state.homeOffsetLeft[homeB];
+
+    moveHandsTo(elA, elB, b, a); // elA is headed to slot b, elB is headed to slot a
+
+    elA.style.transform = `translateX(${targetXForA}px)`;
+    elB.style.transform = `translateX(${targetXForB}px)`;
+    state.homeAtSlot[a] = homeB;
+    state.homeAtSlot[b] = homeA;
+    state.slotOfHome[homeA] = b;
+    state.slotOfHome[homeB] = a;
+  }
+
+  // Snaps each paw+arm to wherever its cup currently sits, then animates
+  // both to the cup's destination slot at the same time the cup itself
+  // moves — so the monkey visibly grabs and drags the two cups being
+  // swapped, instead of the hands floating independently.
+  function moveHandsTo(elA, elB, targetSlotA, targetSlotB){
+    if(!pawA || !armA || !state.shoulders) return;
+    const stageRect = stageEl.getBoundingClientRect();
+    const cupsRowRect = cupsRow.getBoundingClientRect();
+    const cupWidth = elA.offsetWidth;
+    const rowOffsetX = cupsRowRect.left - stageRect.left;
+
+    const rectA = elA.getBoundingClientRect();
+    const rectB = elB.getBoundingClientRect();
+    const startXA = rectA.left - stageRect.left + cupWidth / 2;
+    const startXB = rectB.left - stageRect.left + cupWidth / 2;
+    const startY = rectA.top - stageRect.top - 4;
+
+    const finalXA = rowOffsetX + state.homeOffsetLeft[targetSlotA] + cupWidth / 2;
+    const finalXB = rowOffsetX + state.homeOffsetLeft[targetSlotB] + cupWidth / 2;
+
+    placeHand(pawA, armA, state.shoulders.left, startXA, startY, finalXA, startY);
+    placeHand(pawB, armB, state.shoulders.right, startXB, startY, finalXB, startY);
+  }
+
+  function placeHand(paw, arm, shoulder, startX, startY, finalX, finalY){
+    [paw, arm].forEach(el => { el.style.transition = 'none'; });
+    setPawPos(paw, startX, startY);
+    setArmPos(arm, shoulder, startX, startY);
+    paw.style.opacity = '1';
+    arm.style.opacity = '1';
+    void paw.offsetWidth; // force reflow so the snap above isn't animated
+    paw.style.transition = '';
+    arm.style.transition = '';
+    setPawPos(paw, finalX, finalY);
+    setArmPos(arm, shoulder, finalX, finalY);
+  }
+
+  function setPawPos(paw, x, y){
+    paw.style.left = (x - 18) + 'px';
+    paw.style.top = (y - 18) + 'px';
+  }
+  function setArmPos(arm, shoulder, handX, handY){
+    const dx = handX - shoulder.x;
+    const dy = handY - shoulder.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    arm.style.left = shoulder.x + 'px';
+    arm.style.top = (shoulder.y - 10) + 'px';
+    arm.style.width = len + 'px';
+    arm.style.transform = `rotate(${angle}deg)`;
+  }
+
+  function hideHands(){
+    [pawA, pawB, armA, armB].forEach(el => { if(el) el.style.opacity = '0'; });
+  }
+
+  // ---- Shuffle sound effect (synthesized "swish" — no audio file needed) ----
+  // Muted together with "효과 줄이기" since it's the same kind of non-essential effect.
+  function ensureAudioCtx(){
+    if(state.audioCtx === undefined){
+      try{ state.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(e){ state.audioCtx = null; }
+    }
+    return state.audioCtx;
+  }
+
+  function playSwish(){
+    if(state.reduceEffects) return;
+    const ctx = ensureAudioCtx();
+    if(!ctx) return;
+    if(ctx.state === 'suspended') ctx.resume();
+
+    const now = ctx.currentTime;
+    const duration = 0.16;
+    const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<bufferSize;i++){ data[i] = Math.random() * 2 - 1; }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 0.7;
+    filter.frequency.setValueAtTime(2000, now);
+    filter.frequency.exponentialRampToValueAtTime(700, now + duration);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.3, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    noise.start(now);
+    noise.stop(now + duration);
+  }
+
+  function speedProfile(cupCount){
+    if(cupCount <= 3) return { steps: 6, delay: 320, duration: 280 };
+    if(cupCount === 4) return { steps: 8, delay: 230, duration: 190 };
+    return { steps: 10, delay: 160, duration: 130 }; // 5 cups
+  }
+
+  function runShuffle(){
+    const speed = speedProfile(state.cupCount);
+    const steps = state.reduceEffects ? 1 : speed.steps;
+    let stepIndex = 0;
+
+    function doStep(){
+      if(document.hidden){
+        // Pause: remember we still owe this step, resume on visibility change.
+        state.pausedShuffleQueue = doStep;
+        return;
+      }
+      if(stepIndex >= steps){
+        state.locked = false;
+        hideHands();
+        setPhase('picking', '선택 가능');
+        setCupsEnabled(true);
+        announce('컵을 하나 선택하세요.');
+        return;
+      }
+      const a = Math.floor(Math.random() * state.cupCount);
+      let b = Math.floor(Math.random() * state.cupCount);
+      if(b === a) b = (b + 1) % state.cupCount;
+      if(state.ballIndex === a) state.ballIndex = b;
+      else if(state.ballIndex === b) state.ballIndex = a;
+      swapSlots(a, b);
+      playSwish();
+      stepIndex++;
+      schedule(doStep, state.reduceEffects ? 0 : speed.delay);
+    }
+    doStep();
+  }
+
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.hidden){
+      pauseCountdown();
+    }else{
+      resumeCountdown();
+      if(state.pausedShuffleQueue){
+        const fn = state.pausedShuffleQueue;
+        state.pausedShuffleQueue = null;
+        fn();
+      }
+    }
+  });
+
+  function onCupClick(e){
+    if(state.locked || state.phase !== 'picking') return;
+    state.locked = true;
+    setCupsEnabled(false);
+    stopCountdown();
+    const home = Number(e.currentTarget.getAttribute('data-home'));
+    const picked = state.slotOfHome[home];
+    e.currentTarget.setAttribute('data-picked','true');
+
+    for(let slot=0; slot<state.cupCount; slot++){
+      const el = elAtSlot(slot);
+      el.setAttribute('data-reveal', slot === state.ballIndex ? 'ball' : 'empty');
+    }
+
+    const success = picked === state.ballIndex;
+    if(success){
+      state.streak += 1;
+      if(state.streak > state.best) state.best = state.streak;
+      setPhase('success', '결과: 성공');
+      resultText.textContent = '성공! 돌을 찾았어요.';
+      resultText.setAttribute('data-tone','success');
+      if(monkeyFace) monkeyFace.setAttribute('data-mood', 'success');
+      announce('성공했습니다.');
+    }else{
+      state.streak = 0;
+      setPhase('fail', '결과: 실패');
+      resultText.textContent = '실패했어요. 돌은 다른 컵에 있었어요.';
+      resultText.setAttribute('data-tone','fail');
+      if(monkeyFace) monkeyFace.setAttribute('data-mood', 'fail');
+      announce('실패했습니다.');
+    }
+    renderStats();
+    saveState();
+    startBtn.textContent = '다시 시작';
+    startBtn.focus();
+  }
+
+  // ---- Difficulty controls ----
+  function setDifficulty(n){
+    state.cupCount = n;
+    diffBtns.forEach(b=> b.setAttribute('aria-pressed', String(Number(b.dataset.cups) === n)));
+    saveState();
+  }
+  diffBtns.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(state.phase === 'shuffling' || state.phase === 'picking') return; // lock during a round
+      setDifficulty(Number(btn.dataset.cups));
+      buildCups();
+    });
+  });
+
+  // ---- Effects toggle ----
+  function applyEffectsToggle(){
+    effectsToggle.setAttribute('aria-pressed', String(state.reduceEffects));
+    effectsToggle.textContent = state.reduceEffects ? '효과 켜기' : '효과 줄이기';
+  }
+  effectsToggle.addEventListener('click', ()=>{
+    state.reduceEffects = !state.reduceEffects;
+    applyEffectsToggle();
+    saveState();
+  });
+
+  // ---- Start / restart ----
+  startBtn.addEventListener('click', startRound);
+
+  // ---- Init ----
+  setDifficulty(state.cupCount);
+  applyEffectsToggle();
+  buildCups();
+  renderStats();
+  setPhase('idle', '대기 중');
+})();
+</script>
+
+</body>
+</html>
